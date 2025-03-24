@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Book Clust 📚</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #f4f6fc;
+      padding: 2rem;
+      color: #333;
+    }
+
+    h1 {
+      color: #5c67f2;
+    }
+
+    select, button {
+      margin: 0.5rem 1rem 1rem 0;
+      padding: 8px 14px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      font-size: 1rem;
+      cursor: pointer;
+    }
+
+    button {
+      background-color: #5c67f2;
+      color: white;
+      border: none;
+    }
+
+    button:hover {
+      background-color: #4a54e1;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    }
+
+    th, td {
+      padding: 12px 16px;
+      text-align: left;
+      border-bottom: 1px solid #eee;
+    }
+
+    th {
+      background-color: #5c67f2;
+      color: white;
+    }
+
+    .grupo-Bajo { background-color: #c3f7c3; }
+    .grupo-Medio { background-color: #fff7c3; }
+    .grupo-Caro { background-color: #f7c3c3; }
+
+    .loading {
+      display: none;
+      margin-top: 1rem;
+    }
+  </style>
+</head>
+<body>
+  <h1>📚 Libros Clusterizados</h1>
+
+  <div>
+    <button onclick="actualizarCatalogo()">📥 Actualizar catálogo</button>
+
+    <label for="filtro-parametro">Filtrar por:</label>
+    <select id="filtro-parametro" onchange="actualizarOpcionesFiltro()">
+      <option value="ninguno">Ninguno</option>
+      <option value="grupo">Grupo</option>
+      <option value="genero">Género</option>
+      <option value="rating">Rating</option>
+    </select>
+
+    <select id="filtro-valor" onchange="filtrarLibros()" style="display: none;"></select>
+  </div>
+
+  <div id="loading" class="loading">Cargando...</div>
+
+  <table id="tabla-libros">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Título</th>
+        <th>Precio</th>
+        <th>Rating ⭐</th>
+        <th>Género</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <script>
+    let librosOriginal = [];
+
+    async function cargarDatos() {
+      mostrarCarga(true);
+      try {
+        const res = await fetch('/libros/cluster');
+        if (!res.ok) throw new Error('Error al cargar los datos');
+        const libros = await res.json();
+        librosOriginal = libros;
+        mostrarLibros(libros);
+      } catch (error) {
+        console.error(error);
+        alert('Error al cargar los datos');
+      } finally {
+        mostrarCarga(false);
+      }
+    }
+
+    function mostrarLibros(libros) {
+      const cuerpo = document.querySelector('#tabla-libros tbody');
+      cuerpo.innerHTML = '';
+
+      libros.forEach(libro => {
+        const fila = document.createElement('tr');
+        fila.classList.add(`grupo-${libro.grupo}`);
+
+        fila.innerHTML = `
+          <td>${libro.id}</td>
+          <td>${libro.titulo}</td>
+          <td>£${libro.precio.toFixed(2)}</td>
+          <td>${'⭐'.repeat(libro.rating)}</td>
+          <td>${libro.genero}</td>
+        `;
+
+        cuerpo.appendChild(fila);
+      });
+    }
+
+    function actualizarOpcionesFiltro() {
+      const tipo = document.getElementById('filtro-parametro').value;
+      const valor = document.getElementById('filtro-valor');
+      valor.style.display = tipo === 'ninguno' ? 'none' : 'inline-block';
+
+      valor.innerHTML = '';
+
+      if (tipo === 'grupo') {
+        valor.innerHTML = `<option value="Bajo">Bajo</option><option value="Medio">Medio</option><option value="Caro">Caro</option>`;
+      } else if (tipo === 'rating') {
+        valor.innerHTML = `<option value="5">⭐⭐⭐⭐⭐</option><option value="4">⭐⭐⭐⭐</option><option value="3">⭐⭐⭐</option>`;
+      } else if (tipo === 'genero') {
+        const generos = [...new Set(librosOriginal.map(l => l.genero))];
+        generos.forEach(g => {
+          const opt = document.createElement('option');
+          opt.value = g;
+          opt.textContent = g;
+          valor.appendChild(opt);
+        });
+      }
+
+      filtrarLibros();
+    }
+
+    function filtrarLibros() {
+      const tipo = document.getElementById('filtro-parametro').value;
+      const valor = document.getElementById('filtro-valor').value;
+      let filtrados = librosOriginal;
+
+      if (tipo !== 'ninguno') {
+        filtrados = librosOriginal.filter(l => l[tipo] == valor);
+      }
+
+      mostrarLibros(filtrados);
+    }
+
+    async function actualizarCatalogo() {
+      const boton = document.querySelector('button');
+      boton.disabled = true;
+      boton.innerText = 'Actualizando...';
+      mostrarCarga(true);
+      try {
+        const res = await fetch('/libros/scrape');
+        if (!res.ok) throw new Error('Error al actualizar el catálogo');
+        const data = await res.json();
+        await cargarDatos();
+        alert('✅ Catálogo actualizado con ' + data.cantidad + ' libros.');
+      } catch (error) {
+        console.error(error);
+        alert('❌ Error al actualizar');
+      } finally {
+        boton.disabled = false;
+        boton.innerText = '📥 Actualizar catálogo';
+        mostrarCarga(false);
+      }
+    }
+
+    function mostrarCarga(mostrar) {
+      document.getElementById('loading').style.display = mostrar ? 'block' : 'none';
+    }
+
+    cargarDatos();
+  </script>
+</body>
+</html>
