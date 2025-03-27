@@ -102,14 +102,33 @@
     async function cargarDatos() {
       mostrarCarga(true);
       try {
-        const res = await fetch('/libros/cluster');
-        if (!res.ok) throw new Error('Error al cargar los datos');
+        const res = await fetch('http://localhost:3000/libros/cluster');
+        
+        if (!res.ok) {
+          throw new Error(`Error HTTP: ${res.status}`);
+        }
+        
         const libros = await res.json();
-        librosOriginal = libros;
-        mostrarLibros(libros);
+        
+        // Validación profunda de los datos
+        if (!Array.isArray(libros)) {
+          throw new Error('La respuesta no contiene un array de libros');
+        }
+        
+        // Transformación segura de los datos
+        librosOriginal = libros.map(libro => ({
+          id: libro.id || 'N/A',
+          titulo: libro.titulo || 'Sin título',
+          precio: libro.precio ? Number(libro.precio) : 0,
+          rating: libro.rating || 0,
+          genero: libro.genero || 'Desconocido',
+          grupo: libro.grupo || 'Desconocido'
+        }));
+        
+        mostrarLibros(librosOriginal);
       } catch (error) {
-        console.error(error);
-        alert('Error al cargar los datos');
+        console.error('Error al cargar datos:', error);
+        alert('Error al cargar los datos. Ver consola para detalles.');
       } finally {
         mostrarCarga(false);
       }
@@ -118,6 +137,11 @@
     function mostrarLibros(libros) {
       const cuerpo = document.querySelector('#tabla-libros tbody');
       cuerpo.innerHTML = '';
+
+      if (!libros || libros.length === 0) {
+        cuerpo.innerHTML = '<tr><td colspan="5">No hay libros disponibles</td></tr>';
+        return;
+      }
 
       libros.forEach(libro => {
         const fila = document.createElement('tr');
@@ -143,9 +167,17 @@
       valor.innerHTML = '';
 
       if (tipo === 'grupo') {
-        valor.innerHTML = `<option value="Bajo">Bajo</option><option value="Medio">Medio</option><option value="Caro">Caro</option>`;
+        valor.innerHTML = `
+          <option value="Bajo">Bajo</option>
+          <option value="Medio">Medio</option>
+          <option value="Caro">Caro</option>
+        `;
       } else if (tipo === 'rating') {
-        valor.innerHTML = `<option value="5">⭐⭐⭐⭐⭐</option><option value="4">⭐⭐⭐⭐</option><option value="3">⭐⭐⭐</option>`;
+        valor.innerHTML = `
+          <option value="5">⭐⭐⭐⭐⭐</option>
+          <option value="4">⭐⭐⭐⭐</option>
+          <option value="3">⭐⭐⭐</option>
+        `;
       } else if (tipo === 'genero') {
         const generos = [...new Set(librosOriginal.map(l => l.genero))];
         generos.forEach(g => {
@@ -176,15 +208,20 @@
       boton.disabled = true;
       boton.innerText = 'Actualizando...';
       mostrarCarga(true);
+      
       try {
-        const res = await fetch('/libros/scrape');
-        if (!res.ok) throw new Error('Error al actualizar el catálogo');
+        const res = await fetch('http://localhost:3000/libros/scrape');
+        
+        if (!res.ok) {
+          throw new Error(`Error HTTP: ${res.status}`);
+        }
+        
         const data = await res.json();
         await cargarDatos();
-        alert('✅ Catálogo actualizado con ' + data.cantidad + ' libros.');
+        alert(`✅ Catálogo actualizado con ${data.cantidad || 0} libros.`);
       } catch (error) {
-        console.error(error);
-        alert('❌ Error al actualizar');
+        console.error('Error al actualizar catálogo:', error);
+        alert('❌ Error al actualizar. Ver consola para detalles.');
       } finally {
         boton.disabled = false;
         boton.innerText = '📥 Actualizar catálogo';
@@ -196,7 +233,8 @@
       document.getElementById('loading').style.display = mostrar ? 'block' : 'none';
     }
 
-    cargarDatos();
+    // Iniciar la carga cuando el DOM esté listo
+    document.addEventListener('DOMContentLoaded', cargarDatos);
   </script>
 </body>
 </html>

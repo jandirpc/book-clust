@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_HOST: db
+      DB_USER: apalm
+      DB_PASSWORD: Appsweb2022+
+      DB_NAME: libros_db
+    volumes:
+      - .:/app
+      - /app/node_modules
+    networks:
+      - book_network
+
+  db:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: Appsweb2022+
+      MYSQL_DATABASE: libros_db
+      MYSQL_USER: apalm
+      MYSQL_PASSWORD: Appsweb2022+
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 5s
+      timeout: 10s
+      retries: 5
+    networks:
+      - book_network
+
+volumes:
+  mysql-data:
+
+networks:
+  book_network:
+    driver: bridge
